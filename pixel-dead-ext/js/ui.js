@@ -230,6 +230,7 @@ const P = UI.profile; let prevFx = { hop: 0, fire: 0, shake: 0, pk: 0, casings: 
 UI.loadProfile = function () {
   let name = 'Survivor', look = PD.defaultLook();
   try { name = PD.cleanName(localStorage.getItem('pdName')); look = PD.cleanLook(JSON.parse(localStorage.getItem('pdLook') || 'null')); } catch (e) {}
+  PD.Unlocks.sanitize(look);
   P.name = name; P.look = look;
 };
 UI.saveProfile = function () { try { localStorage.setItem('pdName', P.name); localStorage.setItem('pdLook', JSON.stringify(P.look)); } catch (e) {} };
@@ -244,23 +245,35 @@ function buildLook() {
     const k = el.dataset.k; el.innerHTML = '';
     list.forEach((n, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chipbtn'; b.setAttribute('role', 'radio'); b.innerHTML = '<span></span>'; b.firstChild.textContent = sentence(n); b.onclick = () => pick(k, i, b); el.appendChild(b); });
   };
-  document.querySelectorAll('#look .swatches').forEach(el => mkSw(el, el.dataset.k === 'skin' ? PD.SKIN : PD.COLORS));
+  document.querySelectorAll('#look .swatches').forEach(el => mkSw(el, el.dataset.k === 'skin' ? PD.SKIN : el.dataset.k === 'sab' ? PD.SABERS.map(x => x.glow) : PD.COLORS));
   mkChips(document.querySelector('#look .chips[data-k=hat]'), PD.HATS); mkChips(document.querySelector('#look .chips[data-k=acc]'), PD.ACCS); mkChips(document.querySelector('#look .chips[data-k=pick]'), PD.PICKS);
+  /* outfits are split over two tabs; every button keeps its index in PD.OUTFITS (data-i), and None is offered in both */
+  document.querySelectorAll('#look .chips[data-k=out]').forEach(el => {
+    el.innerHTML = '';
+    PD.OUTFITS.forEach((O, i) => { if (i !== 0 && O.group !== el.dataset.group) return; const b = document.createElement('button'); b.type = 'button'; b.className = 'chipbtn'; b.setAttribute('role', 'radio'); b.dataset.i = i; b.innerHTML = '<span></span>'; b.firstChild.textContent = sentence(O.name); b.onclick = () => pick('out', i, b); el.appendChild(b); });
+  });
   document.querySelectorAll('#look [role=radiogroup]').forEach(grp => grp.addEventListener('keydown', e => {
-    const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }; if (!keys[e.key]) return; const els = [...grp.children], i = els.indexOf(document.activeElement); if (i < 0) return;
+    const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }; if (!keys[e.key]) return; const els = [...grp.children].filter(b => !b.hidden), i = els.indexOf(document.activeElement); if (i < 0) return;
     e.preventDefault(); const n = els[(i + keys[e.key] + els.length) % els.length]; n.focus(); n.click();
   }));
 }
 function pick(k, i, btn) {
   if (P.look[k] === i) return; P.look[k] = i; UI.saveProfile(); refreshLook(true); A.play('ui:pick');
   if (btn) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); }
-  prevFx.hop = .28; if (k === 'pick') prevFx.pk = 2.6;
+  prevFx.hop = .28; if (k === 'pick' || k === 'sab') prevFx.pk = 2.6;
 }
+const gi = (b, i) => b.dataset.i != null ? +b.dataset.i : i;
 function refreshLook(animate) {
-  document.querySelectorAll('#look [role=radiogroup]').forEach(grp => { const k = grp.dataset.k; [...grp.children].forEach((b, i) => { const on = P.look[k] === i; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; }); });
+  document.querySelectorAll('#look [role=radiogroup]').forEach(grp => { const k = grp.dataset.k; [...grp.children].forEach((b, i) => { const on = P.look[k] === gi(b, i); b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; }); });
   $('hatcField').classList.toggle('off', P.look.hat === 0);
+  /* options that need a redeem code stay hidden until it is entered */
+  document.querySelectorAll('#look [role=radiogroup]').forEach(grp => { const k = grp.dataset.k; if (k === 'hat' || k === 'acc' || k === 'pick' || k === 'sab' || k === 'out') [...grp.children].forEach((b, i) => { b.hidden = PD.Unlocks.locked(k, gi(b, i)); }); });
+  const sab = $('sabField'); sab.hidden = !PD.Unlocks.has('darth'); sab.classList.toggle('off', P.look.pick !== 2);
+  const wearing = P.look.out > 0; $('outNote').hidden = !wearing;
+  document.querySelectorAll('#look [data-needs-nooutfit]').forEach(f => f.classList.toggle('off', wearing));
   UI.refreshChip();
 }
+UI.refreshLook = () => { PD.Unlocks.sanitize(P.look); refreshLook(); };
 /* lifetime PvP record of the local player (updated in main.showOver) */
 UI.pvpRecord = () => { try { return { k: +localStorage.getItem('pdPvpK') || 0, d: +localStorage.getItem('pdPvpD') || 0 }; } catch (e) { return { k: 0, d: 0 }; } };
 UI.refreshChip = function () {
@@ -268,8 +281,25 @@ UI.refreshChip = function () {
   $('chipBest').textContent = b || pv ? [b ? 'Best: round ' + b : '', pv].filter(Boolean).join(' · ') : 'Tap to change your look';
 };
 UI.refreshMenu = function () { UI.refreshChip(); $('popNote').hidden = !UI.popup; };
-UI.openLook = function () { $('nameIn').value = P.name === 'Survivor' ? '' : P.name; refreshLook(); };
-UI.randomize = function () { const pk = P.look.pick; P.look = PD.randomLook(); P.look.pick = pk; UI.saveProfile(); refreshLook(true); prevFx.hop = .35; A.play('ui:pick'); document.querySelectorAll('#look .sw[aria-checked=true], #look .chipbtn[aria-checked=true]').forEach(b => { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }); };
+/* tabs of the survivor menu */
+const LOOK_TABS = ['body', 'head', 'outfit', 'street', 'gear', 'codes']; let lookTab = 'body'; const tabNew = new Set();
+UI.lookTab = function (name, focus) {
+  if (LOOK_TABS.indexOf(name) < 0) name = 'body'; lookTab = name; tabNew.delete(name);
+  LOOK_TABS.forEach(t => { const on = t === name, b = $('tab-' + t); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; b.classList.toggle('new', tabNew.has(t)); $('pane-' + t).hidden = !on; });
+  if (name === 'codes' && UI.renderHunt) UI.renderHunt();
+  if (focus) $('tab-' + name).focus(); UI.fitPanels();
+};
+/* a small dot on the tabs that got something new from a code */
+UI.markNew = function (keys) { (keys || []).forEach(k => { const t = PD.lockTab(k); if (t !== lookTab) tabNew.add(t); }); LOOK_TABS.forEach(t => $('tab-' + t).classList.toggle('new', tabNew.has(t))); };
+UI.tabsFor = function (keys) { const seen = []; (keys || []).forEach(k => { const t = PD.lockTab(k); if (seen.indexOf(t) < 0) seen.push(t); }); return seen.map(t => ({ head: 'Head', outfit: 'Outfits', street: 'Streetwear', gear: 'Gear' }[t])); };
+/* wear the outfit that goes with the current hat (if you have it) */
+UI.matchHat = function () {
+  const i = PD.OUTFITS.findIndex(O => O.hat === P.look.hat && P.look.hat > 0);
+  if (i < 0 || PD.Unlocks.locked('out', i)) { A.play('ui:err'); UI.toast(P.look.hat === 0 ? 'Pick a hat first.' : 'You do not have the outfit for this hat yet.', 'info', 2400); return; }
+  pick('out', i);
+};
+UI.openLook = function () { $('nameIn').value = P.name === 'Survivor' ? '' : P.name; refreshLook(); UI.lookTab(lookTab); };
+UI.randomize = function () { const pk = P.look.pick, sb = P.look.sab; P.look = PD.randomLook(); P.look.pick = pk; P.look.sab = sb; UI.saveProfile(); refreshLook(true); prevFx.hop = .35; A.play('ui:pick'); document.querySelectorAll('#look .sw[aria-checked=true], #look .chipbtn[aria-checked=true]').forEach(b => { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }); };
 
 /* live preview + chip avatar: runs only while menu/look are visible */
 let loopOn = false, lt = 0, chipT = 0;
@@ -337,6 +367,9 @@ UI.init = function () {
   const logo = document.querySelector('.logo'); let n = 0; logo.querySelectorAll('.w').forEach((w, wi) => { const word = wi === 0 ? 'PIXEL' : 'DEAD'; for (const ch of word) { const s = document.createElement('span'); s.className = 'l'; s.style.setProperty('--n', n++); s.textContent = ch; w.appendChild(s); } });
   UI.upgrade(); buildLook(); refreshLook();
   // look screen
+  LOOK_TABS.forEach(t => { $('tab-' + t).onclick = () => UI.lookTab(t); });
+  $('lookTabs').addEventListener('keydown', e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (!d) return; e.preventDefault(); UI.lookTab(LOOK_TABS[(LOOK_TABS.indexOf(lookTab) + d + LOOK_TABS.length) % LOOK_TABS.length], true); });
+  $('bMatchHat').onclick = () => UI.matchHat();
   $('nameIn').addEventListener('input', e => { P.name = PD.cleanName(e.target.value); UI.saveProfile(); UI.refreshChip(); });
   const prv = $('prev'); prv.addEventListener('mousedown', e => { A.init(); fireP(e); e.preventDefault(); });
   document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.t = performance.now() / 1000; if (PD.Scene) PD.Scene.mouse((e.clientX / root.innerWidth - .5) * 2, (e.clientY / root.innerHeight - .5) * 2); });

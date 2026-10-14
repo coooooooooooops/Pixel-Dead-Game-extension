@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pixel Dead",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Pixel-art zombie survival with bosses, 14 weapons and online co-op, PvP and hide and seek. Play in the popup or a full tab.",
   "permissions": ["storage"],
   "action": {

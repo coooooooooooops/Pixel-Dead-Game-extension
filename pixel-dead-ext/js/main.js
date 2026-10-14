@@ -4,7 +4,7 @@
 'use strict';
 const PD = window.PD, R = PD.Render, A = PD.audio, UI = PD.UI, Net = PD.Net, $ = id => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d'); cv.width = PD.CW; cv.height = PD.CH; ctx.imageSmoothingEnabled = false;
-const ST = { state: 'menu', role: 'single', mode: 'single', sim: null, host: null, client: null, mirror: null, me: 'p1', overlay: null, banner: null, feed: [], showMap: false, showScore: false, fc: 0, lastSlot: 0, over: null, chat: [], chatHist: [], chatOpen: false, net: null };
+const ST = { state: 'menu', role: 'single', mode: 'single', sim: null, host: null, client: null, mirror: null, me: 'p1', overlay: null, banner: null, feed: [], showMap: false, showScore: false, fc: 0, lastSlot: 0, over: null, chat: [], chatHist: [], chatOpen: false, net: null, wheel: null };
 const keys = {}, mouse = { x: 256, y: 144, down: false, rdown: false };
 let last = 0, inpT = 0;
 const P = UI.profile;
@@ -25,6 +25,7 @@ function toMenu(msg, kind) {
   if (ST.state === 'play' || ST.state === 'over' || ST.state === 'pause') UI.dissolve(go, { ms: 340 }); else go();
 }
 function teardown() {
+  ST.wheel = null;
   try { if (ST.host) ST.host.close(); } catch (e) {} try { if (ST.client) ST.client.leave(); } catch (e) {}
   try { Net.close(); } catch (e) {}
   ST.host = null; ST.client = null; ST.sim = null; ST.mirror = null; ST.role = 'single'; ST.over = null; ST.overlay = null; ST.state = 'menu'; ST.room = null;
@@ -69,7 +70,7 @@ $('bAgain').onclick = startSingle; $('bMenu').onclick = () => toMenu();
    pause / menu overlay
    ===================================================================== */
 function openPause() {
-  if (ST.state !== 'play' || ST.overlay) return; ST.overlay = 'pause'; mouse.down = false;
+  if (ST.state !== 'play' || ST.overlay) return; closeWheel(false); ST.overlay = 'pause'; mouse.down = false;
   const on = online(); $('pauseTitle').textContent = on ? 'Menu' : 'Paused';
   $('pauseNote').textContent = on ? (ST.role === 'host' ? 'The game keeps running. Leaving ends it for everyone.' : 'The game keeps running while this is open.') : 'Your run is on hold.';
   UI.label($('bQuit'), on ? 'Leave game' : 'Quit to menu'); UI.syncTools(); UI.show('pause'); A.play('ui:open');
@@ -197,7 +198,7 @@ function startClient(m) {
    ===================================================================== */
 function mpos(e) { const r = cv.getBoundingClientRect(); mouse.x = (e.clientX - r.left) * PD.CW / r.width; mouse.y = (e.clientY - r.top) * PD.CH / r.height; }
 cv.addEventListener('mousemove', mpos);
-cv.addEventListener('mousedown', e => { mpos(e); A.init(); if (e.button === 0 && !ST.overlay) { mouse.down = true; ST.fc++; } else if (e.button === 2 && !ST.overlay) mouse.rdown = true; e.preventDefault(); });
+cv.addEventListener('mousedown', e => { mpos(e); A.init(); if (ST.wheel) { if (e.button === 0) { wheelSel(); chooseEmote(ST.wheel.sel); } e.preventDefault(); return; } if (e.button === 0 && !ST.overlay) { mouse.down = true; ST.fc++; } else if (e.button === 2 && !ST.overlay) mouse.rdown = true; e.preventDefault(); });
 window.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; else if (e.button === 2) mouse.rdown = false; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 const meP = () => ST.role === 'client' ? (ST.mirror && ST.mirror.me()) : (ST.sim && ST.sim.pmap[ST.me]);
@@ -206,8 +207,8 @@ function slotInfo() { if (ST.role === 'client') { const h = ST.mirror && ST.mirr
 function bmode() { if (ST.role === 'client') { const h = ST.mirror && ST.mirror.hv; return h ? { on: !!h.bm, sel: h.bs | 0 } : { on: false, sel: 0 }; } const p = meP(); return p ? { on: !!p.build, sel: p.bsel | 0 } : { on: false, sel: 0 }; }
 function act(k, v) { if (ST.role === 'client') { if (ST.client) ST.client.act(k, v); } else if (ST.sim) ST.sim.act(ST.me, k, v); }
 function sw2(i) { const s = slotInfo(); if (!s || i === s.cur || i >= s.n || i < 0) return; ST.lastSlot = s.cur; act('sw', i); }
-cv.addEventListener('wheel', e => { if (ST.state !== 'play' || ST.overlay) return; const b = bmode(); if (b.on) { act('bsel', b.sel ^ 1); e.preventDefault(); return; } const s = slotInfo(); if (!s || s.n < 2) return; sw2((s.cur + (e.deltaY > 0 ? 1 : s.n - 1)) % s.n); e.preventDefault(); }, { passive: false });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = false; mouse.rdown = false; if (ST.state === 'play' && ST.role === 'single' && !ST.overlay && !UI.popup) openPause(); });
+cv.addEventListener('wheel', e => { if (ST.state !== 'play' || ST.overlay || ST.wheel) return; const b = bmode(); if (b.on) { act('bsel', b.sel ^ 1); e.preventDefault(); return; } const s = slotInfo(); if (!s || s.n < 2) return; sw2((s.cur + (e.deltaY > 0 ? 1 : s.n - 1)) % s.n); e.preventDefault(); }, { passive: false });
+window.addEventListener('blur', () => { closeWheel(false); for (const k in keys) keys[k] = false; mouse.down = false; mouse.rdown = false; if (ST.state === 'play' && ST.role === 'single' && !ST.overlay && !UI.popup) openPause(); });
 function backKey() {
   switch (UI.cur) {
     case 'look': UI.show('menu'); ST.state = 'menu'; A.play('ui:back'); break;
@@ -227,8 +228,10 @@ window.addEventListener('keydown', e => {
     if (k === 'escape' || (k === 'p' && ST.role === 'single')) { if (!e.repeat) openPause(); return; }
     if (ST.overlay || e.repeat) return;
     if (k === 'enter') { if (online()) { e.preventDefault(); openChat(); } return; }
+    if (k === 'g') { openWheel(); return; }
+    if (ST.wheel && k >= '1' && k <= '8') { chooseEmote(+k - 1); return; }
     const p = meP();
-    if (k === 'r') act('rl'); else if (k === 'e') act('use'); else if (k === 'f') act('ab');
+    if (k === 'r') act('rl'); else if (k === 'e') { act('use'); readNote(); } else if (k === 'f') act('ab');
     else if (k === 'b') act('bm');
     else if (k === 'v') { const s = slotInfo(); if (s) { if (bmode().on) act('bm'); sw2(s.n - 1); } }
     else if ((k === '1' || k === '2') && bmode().on) act('bsel', +k - 1);
@@ -236,9 +239,31 @@ window.addEventListener('keydown', e => {
     else if (k === 'm') ST.showMap = !ST.showMap; else if (k === 'tab') ST.showScore = true;
   }
 });
-window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; if (k === 'tab') ST.showScore = false; });
+window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; if (k === 'tab') ST.showScore = false; if (k === 'g') closeWheel(true); });
+/* ---------- the hunt: E next to a scrap of paper reads it (or closes it). Local only, nothing is sent over the network. ---------- */
+function readNote() {
+  const p = meP(), m = ST.role === 'client' ? (ST.mirror && ST.mirror.map) : (ST.sim && ST.sim.map); if (!p || !m || !canEmote()) return;
+  const r = PD.Hunt.use(m, p.x, p.y); if (!r) return;
+  if (r.closed) { A.play('ui:back'); return; }
+  A.play(r.fresh ? 'ui:join' : 'ui:open'); if (r.fresh) UI.toast('Note found. It is saved under Codes in your survivor menu.', 'ok', 5200);
+}
+/* ---------- emotes: hold G, pick with the mouse or 1-8, release to close. Moving, shooting or any other action stops the emote ---------- */
+function canEmote() { const p = meP(); return !!p && (ST.role === 'client' ? !!(p.fl & 1) : p.alive !== false); }
+function openWheel() {
+  if (ST.wheel || ST.state !== 'play' || ST.overlay || ST.chatOpen || !canEmote()) return;
+  for (const k in keys) if (k !== 'g') keys[k] = false; mouse.down = false; mouse.rdown = false;
+  ST.wheel = { sel: -1, done: false }; wheelSel(); A.play('ui:open');
+}
+function wheelSel() { if (ST.wheel) ST.wheel.sel = R.wheelPick(mouse.x, mouse.y); }
+function chooseEmote(i) {
+  const w = ST.wheel; if (!w || i == null || i < 0 || i > 7) return; const E = PD.EMOTES[i];
+  if (E.lock && !PD.Unlocks.has(E.lock)) { A.play('ui:err'); UI.toast('Locked.', 'info', 2600); return; }
+  w.sel = i; w.done = true; A.play('ui:pick'); act('emote', i);
+  if (ST.role === 'client') { const p = meP(); if (p) { p.em = i + 1; p.emOff = 0; } }      // show it at once; the host's snapshot confirms it
+}
+function closeWheel(play) { const w = ST.wheel; if (!w) return; ST.wheel = null; if (play && !w.done && w.sel >= 0) { ST.wheel = w; chooseEmote(w.sel); ST.wheel = null; } }
 function readInput(p) {
-  if (ST.overlay || ST.chatOpen || !p) return { mx: 0, my: 0, a: 0, f: false, f2: false, ad: 0, fc: ST.fc, sp: false };
+  if (ST.overlay || ST.chatOpen || ST.wheel || !p) return { mx: 0, my: 0, a: 0, f: false, f2: false, ad: 0, fc: ST.fc, sp: false };
   const mwx = R.cam.x + mouse.x, mwy = R.cam.y + mouse.y;
   return { mx: (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0), my: (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0), a: Math.atan2(mwy - p.y, mwx - p.x), f: mouse.down, f2: mouse.rdown, ad: Math.hypot(mwx - p.x, mwy - p.y), fc: ST.fc, sp: !!keys['shift'] };
 }
@@ -257,6 +282,7 @@ function frame(ts) {
   let v;
   if (client) {
     const m = ST.mirror; if (!m) return; const p0 = m.me(), inp = readInput(p0), p = m.predict(ST.state === 'play' ? dt : 0, inp);
+    if (p0 && p0.em && (inp.mx || inp.my || inp.f || inp.f2)) { p0.em = 0; p0.emOff = Date.now(); }
     if (ST.state === 'play') { if (ST.client) { ST.client.sendInput(inp); ST.client.ping(); } if (p) { A.lx = p.x; A.ly = p.y; } }
     v = m.view(); sounds(m.ev); rel(m.rel); if (ST.state === 'play') R.update(dt, v); m.ev.length = 0; v.ev = [];
   } else {
@@ -273,6 +299,7 @@ function frame(ts) {
   if (ST.banner) { ST.banner.t -= dt; if (ST.banner.t <= 0) ST.banner = null; }
   ST.feed.forEach(f => f.t -= dt); ST.feed = ST.feed.filter(f => f.t > 0).slice(-5);
   ST.chat.forEach(c => c.t -= dt); ST.chat = ST.chat.filter(c => c.t > 0);
+  if (ST.wheel) { if (ST.state !== 'play' || ST.overlay || !canEmote()) ST.wheel = null; else { wheelSel(); uiOpts.wheel = ST.wheel; } }
   uiOpts.chatOpen = ST.chatOpen; uiOpts.chat = ST.chatOpen ? ST.chatHist.slice(-8).map(m => ({ n: m.name, s: m.s, sys: m.sys, a: 1 })) : ST.chat.map(c => ({ n: c.n, s: c.s, sys: c.sys, a: Math.min(1, c.t / 1.5) }));
   if (client && ST.client && ST.state === 'play') { uiOpts.ping = ST.client.rtt >= 0 ? ST.client.rtt : null; uiOpts.via = ST.net && ST.net.h ? ST.net.h.via : ''; }
   uiOpts.frozen = !!(v.g && v.g.pu && v.g.pu.freeze > 0); uiOpts.tight = !!(v.g && v.g.m === 'hide' && v.h && v.h.seek); uiOpts.banner = ST.banner; uiOpts.feed = ST.feed;
@@ -377,6 +404,52 @@ setInterval(pollNet, 2500);
     $('turnNote').textContent = host ? 'Saved on this device. Your relay is used instead of the shared one.' : 'Saved on this device. Applies to the next room you host or join.';
   };
   [h, u, c].forEach(el => el.addEventListener('input', save)); ro.addEventListener('change', save);
+})();
+
+/* =====================================================================
+   redeem codes (survivor menu, Codes tab): unlock cosmetics, stored on this device
+   ===================================================================== */
+(function () {
+  const inp = $('codeRedeem'), btn = $('bRedeem'), msg = $('redeemMsg'), list = $('redeemList');
+  const say = (t, kind) => { msg.textContent = t; msg.className = 'hint fine ' + (kind || ''); };
+  const shown = () => {
+    /* tags only for codes that are not part of the hunt (the hunt rows show their own state) */
+    const have = Object.keys(PD.CODES).filter(k => !PD.Hunt.byCode[k] && k !== 'EVERYTHING' && k !== 'STREETWEAR' && PD.CODES[k].give.every(t => PD.Unlocks.has(t)));
+    list.innerHTML = ''; have.forEach(k => { const e = document.createElement('span'); e.className = 'utag'; e.textContent = PD.CODES[k].label; list.appendChild(e); });
+    list.hidden = !have.length; renderHunt();
+  };
+  /* the hunt list: hint 1 always; the note's text once you have found it; the code once solved */
+  function renderHunt() {
+    const ol = $('huntList'), pr = PD.Hunt.progress(); ol.innerHTML = '';
+    $('huntCount').textContent = pr.solved + ' of ' + pr.total + ' solved, ' + pr.found + ' found';
+    PD.Hunt.puzzles.forEach((p, i) => {
+      const solved = PD.Hunt.solved(p.code), found = PD.Hunt.hasFound(p.code), li = document.createElement('li');
+      li.className = 'hrow' + (solved ? ' solved' : found ? ' found' : ''); li.dataset.code = p.code;
+      const n = document.createElement('span'); n.className = 'hnum'; n.textContent = solved ? '\u2713' : String(i + 1); n.setAttribute('aria-hidden', 'true');
+      const b = document.createElement('div'); b.className = 'hbody';
+      const h1 = document.createElement('p'); h1.className = 'hh'; h1.textContent = p.hint1; b.appendChild(h1);
+      const u = document.createElement('p'); u.className = 'hu'; u.textContent = 'Unlocks: ' + PD.Hunt.rewardTabs(p.code).join(', '); b.appendChild(u);
+      const st = document.createElement('p');
+      if (solved) { st.className = 'hs'; st.textContent = 'Solved: ' + p.code; }
+      else if (found) { st.className = 'hc'; st.textContent = 'Note: ' + p.note.filter(Boolean).join(' / '); }
+      else { st.className = 'hn'; st.textContent = 'Note not found yet.'; }
+      b.appendChild(st); li.appendChild(n); li.appendChild(b);
+      li.setAttribute('aria-label', 'Puzzle ' + (i + 1) + ', ' + (solved ? 'solved' : found ? 'note found' : 'not found yet'));
+      ol.appendChild(li);
+    });
+  }
+  UI.renderHunt = renderHunt;
+  const go = () => {
+    const code = PD.Unlocks.clean(inp.value); if (!code) { inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); return; }
+    const r = PD.Unlocks.redeem(code);
+    if (!r.ok) { say('That code is not valid.', 'bad'); inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); A.play('ui:err'); return; }
+    inp.value = ''; shown();
+    if (r.fresh) { const tabs = UI.tabsFor(r.keys); say('Unlocked: ' + r.label + (tabs.length ? '. Find it under ' + tabs.join(', ') + '.' : '.'), 'ok'); UI.toast('Unlocked: ' + r.label, 'ok', 4200); A.play('ui:join'); UI.markNew(r.keys); }
+    else say('You already have that one.', '');
+    UI.refreshLook && UI.refreshLook(); UI.fitPanels();
+  };
+  btn.onclick = go; inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  shown();
 })();
 
 /* =====================================================================

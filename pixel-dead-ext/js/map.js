@@ -587,7 +587,7 @@ function scatterCrates(m, rng, seen) {
 }
 
 function pickWB(rng) {
-  const ids = ['revolver', 'pump', 'smg', 'ak', 'sniper', 'minigun', 'flamer', 'gl', 'tesla', 'plasma', 'rpg', 'rail'];
+  const ids = ['revolver', 'pump', 'smg', 'ak', 'sniper', 'minigun', 'flamer', 'gl', 'tesla', 'plasma', 'rpg', 'rail', 'golden', 'crossbow', 'aa12', 'leech', 'laser', 'cryo'];
   const wts = ids.map(i => 1 / (PD.WDEF[i].cost / 500));
   let s = 0; wts.forEach(v => s += v); let r = rng() * s;
   for (let i = 0; i < ids.length; i++) { r -= wts[i]; if (r <= 0) return ids[i]; }

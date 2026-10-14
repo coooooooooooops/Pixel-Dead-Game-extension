@@ -1,6 +1,6 @@
 # Pixel Dead
 
-Pixel-art top-down zombie survival that lives in your browser toolbar. Play it in the extension popup or a full tab: endless survival against zombies and bosses, arena waves, and online co-op, PvP and hide-and-seek with friends (up to 8 players, with AI bots to fill empty seats).
+Pixel-art top-down zombie survival that lives in your browser toolbar. Play it in the extension popup or a full tab: endless survival against zombies and bosses, arena waves, and online co-op, PvP and hide-and-seek with friends (up to 8 players, with AI bots to fill empty seats). Build forts, buy or gamble for 19 weapons, grab power-ups, dress your survivor, and hunt down hidden notes that unlock cosmetic outfits.
 
 Chrome / Edge / Brave extension (Manifest V3). No account, no server to run, no build step.
 
@@ -33,11 +33,12 @@ To update, pull the latest changes and press the reload icon on the extension's 
 | `Shift` | Sprint |
 | Mouse | Aim and fire |
 | `R` | Reload |
-| `E` | Buy a wall weapon, or open the mystery box |
+| `E` | Buy a wall weapon, open the mystery box, or read/close a hunt note (see The Hunt) |
 | `1` `2` `3` / `Q` | Switch weapon |
 | `V` | Pickaxe: chop trees, break rocks and crates, restock ammo from AMMO crates, repair walls |
 | `B` | Build mode. Click to place, right click to remove, `1` / `2` picks wood or stone |
 | `F` | Seeker scan (Hide and Seek) |
+| `G` (hold) | Emote wheel, then press `1` to `8` |
 | `M` | Full map |
 | `Tab` | Scoreboard (kills / deaths / K/D) |
 | `Enter` | Chat (online games). `Enter` sends, `Esc` cancels |
@@ -74,7 +75,7 @@ Maps are generated from a seed, so every online player sees the identical map.
 
 ## Weapons
 
-Start with an M1911 and a pickaxe. Buy bigger guns from the wall plaques inside buildings and around the arenas (`E`), or gamble on the mystery box. You carry two guns plus the pickaxe.
+Start with an M1911 and a pickaxe. Buy bigger guns from the wall plaques inside buildings and around the arenas (`E`), or gamble on the mystery box. You carry two guns plus the pickaxe; picking up a gun that does not fit replaces the one you are holding, and picking up a gun you already own refills its ammo.
 
 | Weapon | Type | Notes |
 |---|---|---|
@@ -91,11 +92,19 @@ Start with an M1911 and a pickaxe. Buy bigger guns from the wall plaques inside 
 | Railgun | Beam | Pierces everything in line |
 | Tesla | Arc | Chains between nearby zombies |
 | Plasma | Energy | Automatic, piercing splash shots |
+| Golden Gun | Pistol | Every shot pays extra money: a hit pays 3x, a kill 3x. Money only, score is unchanged. No bonus in PvP or Hide and Seek |
+| Crossbow | Bolt | Heavy hits, pierces up to 3 targets |
+| AA-12 | Shotgun | Automatic, 6 pellets per shot |
+| Leech | SMG | Automatic, heals you a little for every zombie you hit |
+| Laser | Beam | Automatic, pierces every zombie in line |
+| Cryo | Freezer | Short range, chills zombies: slows them and tints them blue |
 | Pickaxe | Melee | Weak melee that mines and repairs. Never breaks, needs no ammo. Cosmetic skins: pickaxe, katana, lightsaber, zombie arm. |
 
 ### Power-ups
 
-Max Ammo, 2x Points, Insta-Kill, Nuke, Freeze (shared with the team in co-op), plus Heal, Shield, Speed, Rapid Fire, Cloak and Turret (personal). Which ones drop depends on the mode.
+Shared with the team in co-op: **Max Ammo, 2x Points, Insta-Kill, Nuke, Freeze, Payday** (+750 money for every player) and **Airstrike** (rockets land on up to 7 zombies, never hurt players).
+Personal: **Heal, Shield, Speed, Rapid Fire, Cloak, Turret, Gold Rush** (20 s of triple-money shots), **Double Damage** (20 s), **Unlimited Ammo** (15 s) and **Invincible** (8 s).
+Active power-ups show as icons in the HUD. Which ones drop depends on the mode: survival, endless and arena use almost all of them, PvP uses a smaller set (no Invincible, Airstrike or Payday), and Hide and Seek only Speed, Cloak, Shield and Freeze.
 
 ### Zombies and bosses
 
@@ -107,7 +116,14 @@ Chop trees and break rocks with the pickaxe to collect wood and stone, then pres
 
 ### Your survivor
 
-Change your name, skin, shirt, pants, hat, hat colour, face accessory and pickaxe look from the survivor screen (or hit Randomize).
+Change your name, skin, shirt, pants, hat, hat colour, face accessory, outfit and pickaxe look from the survivor screen (or hit Randomize). Locked cosmetics stay hidden until you unlock them with a code.
+
+### Codes and The Hunt
+
+Open the survivor screen and use the **Codes** tab. Cosmetics are unlocked by typing codes (ignoring case, spaces and punctuation). They are cosmetic only and saved on your device (`localStorage.pdUnlocks`).
+
+16 of the 19 codes are puzzles instead of freebies. The Codes tab lists **The hunt** with a first hint for each (which map and which part of it). A paper note lies there on that map: walk up to it, press `E` to read it, and the note is the code written in a simple cipher whose key is printed on the note. Decode it, type it into the Codes tab, and the cosmetic unlocks. Notes you have found are remembered. Three codes are secret and have no puzzle. The full spoiler sheet is `REDEEM_CODES.md`: do not open it if you want to play the hunt.
+
 
 ---
 
@@ -141,7 +157,8 @@ pixel-dead-ext/
   game.html          the game page
   style.css
   js/
-    data.js          constants, weapons, power-ups, zombies, bosses, maps
+    data.js          constants, weapons, power-ups, zombies, bosses, maps, outfits, redeem codes
+    clues.js         The Hunt: puzzle notes and ciphers
     map.js           seeded map generators, collision, rays, flow field, textures
     sim.js           authoritative simulation (all modes)
     bots.js          bot AI
@@ -149,7 +166,8 @@ pixel-dead-ext/
     net.js           WebRTC + MQTT signalling, ICE / TURN config, stats
     render.js scene.js ui.js main.js audio.js
 tests / scripts      node + Playwright tests in the repo root
-HANDOFF*.md          development notes and verification history
+REDEEM_CODES.md      spoiler sheet for every redeem code
+HANDOFF*.md          development notes and verification history (HANDOFF.md is the latest)
 ```
 
 ---
@@ -158,26 +176,39 @@ HANDOFF*.md          development notes and verification history
 
 No build step: edit the files in `pixel-dead-ext/` and reload the extension.
 
-Unit and simulation tests (Node):
+Unit and simulation tests (Node), run each file with `node <file>`:
 
 ```bash
-node bottest.js cratetest.js buildtest.js maptest.js simtest.js modetest.js mapmodetest.js onlinetest.js mqtttest.js nettest.js
+for t in hunttest emotetest buildtest cratetest maptest simtest modetest mapmodetest bottest onlinetest mqtttest nettest goldtest; do node $t.js >/tmp/$t.log 2>&1; echo $t $?; done
 ```
 
-(run each file with `node <file>`). Two-browser online tests use Playwright with Chromium:
+`node a.js b.js` only runs the first file, so use a loop. `seedrand.js` makes a run reproducible: `SEED=2 node -r ./seedrand.js onlinetest.js`.
+
+Browser tests use Playwright with Chromium (`PLAYWRIGHT_BROWSERS_PATH` may need to point at your browsers):
 
 ```bash
 python3 smoke_ui.py        # single-page UI smoke test
+python3 exttest.py         # game running inside the loaded extension
+python3 emotebrowser.py    # emote wheel
+python3 huntbrowser.py     # every hunt note on all 8 maps, solving every code
+python3 popupshots.py      # survivor menu fit in the popup size
 python3 onlinebrowser.py   # host + client over real WebRTC, chat, bots, K/D
+python3 onlineemote.py     # emotes between two online players
 python3 onlinemaps.py      # online PvP on Dead Town and the Colosseum
 python3 onlinerelay.py     # forced relay; needs a local coturn on 127.0.0.1:3478 (user u / pass p)
 ```
 
-`mqttbroker.js` is a tiny local MQTT broker the online tests use so they do not touch the internet. A few simulation tests are known to be occasionally flaky (about 1 in 15 runs); re-run once before investigating.
+For the relay test start coturn with loopback peers allowed, otherwise it refuses the test's connections:
+
+```bash
+turnserver -n --listening-ip=127.0.0.1 --relay-ip=127.0.0.1 --listening-port=3478 --realm=test --lt-cred-mech --user=u:p --no-tls --no-dtls --no-cli --allow-loopback-peers
+```
+
+`mqttbroker.js` is a tiny local MQTT broker the online tests use so they do not touch the internet. A few tests are known to be occasionally flaky: `onlinetest`, `bottest` (a hide seeker finding a motionless player), and the PvP hitscan checks in `simtest` and `modetest`. Re-run once before investigating.
 
 ### Verification status
 
-Online play has been verified between two real Chromium pages over real WebRTC on one machine, including through a local TURN relay. It has **not** been tested across two separate networks or against the shared public relay, and the public MQTT brokers were not reachable from the test environment. See `HANDOFF.md` for the details.
+All Node suites and the browser tests above pass on one machine (see `HANDOFF.md` for the dated results). Online play has been verified between two real Chromium pages over real WebRTC on one machine, including through a local TURN relay. It has **not** been tested across two separate networks or against the shared public relay, and the public MQTT brokers were not reachable from the test environment.
 
 ---
 

@@ -58,21 +58,56 @@
   <!-- ============ your survivor ============ -->
   <section id="look" class="screen s-look" aria-label="Your survivor" hidden>
     <div class="panel plate">
-      <h2>Your survivor</h2>
+      <h2 class="vh">Your survivor</h2>
+      <label class="field namefield"><span>Name</span><input id="nameIn" class="input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Survivor"></label>
       <div class="lookgrid">
         <div class="stage">
           <canvas id="prev" width="56" height="64" aria-label="Preview of your survivor. Click to fire."></canvas>
           <p class="hint">Click to fire</p>
         </div>
-        <div class="fields">
-          <label class="field"><span>Name</span><input id="nameIn" class="input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="Survivor"></label>
-          <div class="field"><span id="lblSkin">Skin</span><div class="swatches" data-k="skin" role="radiogroup" aria-labelledby="lblSkin"></div></div>
-          <div class="field"><span id="lblShirt">Shirt</span><div class="swatches" data-k="shirt" role="radiogroup" aria-labelledby="lblShirt"></div></div>
-          <div class="field"><span id="lblPants">Pants</span><div class="swatches" data-k="pants" role="radiogroup" aria-labelledby="lblPants"></div></div>
-          <div class="field"><span id="lblHat">Hat</span><div class="chips" data-k="hat" role="radiogroup" aria-labelledby="lblHat"></div></div>
-          <div class="field" id="hatcField"><span id="lblHatc">Hat colour</span><div class="swatches" data-k="hatc" role="radiogroup" aria-labelledby="lblHatc"></div></div>
-          <div class="field"><span id="lblAcc">Face</span><div class="chips" data-k="acc" role="radiogroup" aria-labelledby="lblAcc"></div></div>
-          <div class="field"><span id="lblPick">Pickaxe</span><div class="chips" data-k="pick" role="radiogroup" aria-labelledby="lblPick"></div></div>
+        <div class="tabwrap">
+          <div class="tabs" id="lookTabs" role="tablist" aria-label="Customise">
+            <button type="button" class="tab" role="tab" id="tab-body" data-tab="body" aria-controls="pane-body" aria-selected="true"><span>Body</span></button>
+            <button type="button" class="tab" role="tab" id="tab-head" data-tab="head" aria-controls="pane-head" aria-selected="false" tabindex="-1"><span>Head</span></button>
+            <button type="button" class="tab" role="tab" id="tab-outfit" data-tab="outfit" aria-controls="pane-outfit" aria-selected="false" tabindex="-1"><span>Outfits</span></button>
+            <button type="button" class="tab" role="tab" id="tab-street" data-tab="street" aria-controls="pane-street" aria-selected="false" tabindex="-1"><span>Streetwear</span></button>
+            <button type="button" class="tab" role="tab" id="tab-gear" data-tab="gear" aria-controls="pane-gear" aria-selected="false" tabindex="-1"><span>Gear</span></button>
+            <button type="button" class="tab" role="tab" id="tab-codes" data-tab="codes" aria-controls="pane-codes" aria-selected="false" tabindex="-1"><span>Codes</span></button>
+          </div>
+          <div class="fields pane" id="pane-body" role="tabpanel" aria-labelledby="tab-body">
+            <div class="field"><span id="lblSkin">Skin</span><div class="swatches" data-k="skin" role="radiogroup" aria-labelledby="lblSkin"></div></div>
+            <div class="field" data-needs-nooutfit><span id="lblShirt">Shirt</span><div class="swatches" data-k="shirt" role="radiogroup" aria-labelledby="lblShirt"></div></div>
+            <div class="field" data-needs-nooutfit><span id="lblPants">Pants</span><div class="swatches" data-k="pants" role="radiogroup" aria-labelledby="lblPants"></div></div>
+            <p class="hint fine" id="outNote" hidden>You are wearing an outfit, so it replaces your shirt and pants. Choose None under Outfits to use these.</p>
+          </div>
+          <div class="fields pane" id="pane-head" role="tabpanel" aria-labelledby="tab-head" hidden>
+            <div class="field"><span id="lblHat">Hat</span><div class="chips" data-k="hat" role="radiogroup" aria-labelledby="lblHat"></div></div>
+            <div class="field" id="hatcField"><span id="lblHatc">Hat colour</span><div class="swatches" data-k="hatc" role="radiogroup" aria-labelledby="lblHatc"></div></div>
+            <div class="field"><span id="lblAcc">Face</span><div class="chips" data-k="acc" role="radiogroup" aria-labelledby="lblAcc"></div></div>
+          </div>
+          <div class="fields pane" id="pane-outfit" role="tabpanel" aria-labelledby="tab-outfit" hidden>
+            <div class="chips" data-k="out" data-group="costume" role="radiogroup" aria-label="Outfits"></div>
+            <div class="paneact"><button type="button" class="btn small" id="bMatchHat">Match my hat</button><p class="hint fine">Outfits replace your shirt and pants. Every hat has one that goes with it.</p></div>
+          </div>
+          <div class="fields pane" id="pane-street" role="tabpanel" aria-labelledby="tab-street" hidden>
+            <div class="chips" data-k="out" data-group="street" role="radiogroup" aria-label="Streetwear"></div>
+            <p class="hint fine">More streetwear is unlocked with codes. Enter them under Codes.</p>
+          </div>
+          <div class="fields pane" id="pane-gear" role="tabpanel" aria-labelledby="tab-gear" hidden>
+            <div class="field"><span id="lblPick">Pickaxe</span><div class="chips" data-k="pick" role="radiogroup" aria-labelledby="lblPick"></div></div>
+            <div class="field" id="sabField" hidden><span id="lblSab">Saber colour</span><div class="swatches" data-k="sab" role="radiogroup" aria-labelledby="lblSab"></div></div>
+          </div>
+          <div class="fields pane" id="pane-codes" role="tabpanel" aria-labelledby="tab-codes" hidden>
+            <p class="hint">Got a code? Enter it to unlock hats, outfits, streetwear, pickaxes or saber colours. Saved on this device. Every code is the answer to a puzzle: the hunt is below.</p>
+            <div class="chatrow"><input id="codeRedeem" class="input" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Enter code" aria-label="Code to redeem"><button class="btn small" id="bRedeem" type="button">Redeem</button></div>
+            <p class="hint fine" id="redeemMsg" role="status"></p>
+            <section class="hunt" aria-labelledby="huntTitle">
+              <div class="hunthead"><h3 id="huntTitle">The hunt</h3><span id="huntCount"></span></div>
+              <p class="hint fine">Hint 1 says where to look. A scrap of paper lies there in a game. Stand next to it and press E to read it. The note is the code, written in a cipher, and the key is on the note.</p>
+              <ol class="hlist" id="huntList" aria-label="Puzzle hints"></ol>
+            </section>
+            <div class="unlocked" id="redeemList" aria-label="Secret codes you have used" hidden></div>
+          </div>
         </div>
       </div>
       <footer class="foot"><button class="btn" id="bRand" type="button">Randomize</button><span class="grow"></span><button class="btn primary" id="bLookOk" type="button">Done</button></footer>
@@ -95,6 +130,7 @@
           <div><dt><kbd>B</kbd></dt><dd>Build mode. Click to place, right click to remove, 1 / 2 picks the material</dd></div>
           <div><dt><kbd>F</kbd></dt><dd>Seeker scan (Hide and Seek)</dd></div>
           <div><dt><kbd>M</kbd></dt><dd>Full map</dd></div>
+          <div><dt><kbd>G</kbd></dt><dd>Hold for emotes: aim at one or press 1 to 8, let go to close. Moving or shooting ends it</dd></div>
           <div><dt><kbd class="w2">Tab</kbd></dt><dd>Scoreboard (K/D)</dd></div>
           <div><dt><kbd class="w2">Enter</kbd></dt><dd>Chat (online games)</dd></div>
           <div><dt><kbd class="w2">Esc</kbd></dt><dd>Menu</dd></div>
@@ -221,6 +257,7 @@
 
 <script src="js/data.js"></script>
 <script src="js/map.js"></script>
+<script src="js/clues.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/net.js"></script>
 <script src="js/sim.js"></script>

@@ -73,11 +73,18 @@ PD.WDEF = {
   gl:      W({ name: 'GRENADE', kind: 'proj',  dmg: 130, mag: 4,   res: 20,  rate: .55,  reload: 2.4, range: 400, cost: 2000, splash: 42, speed: 190, bounce: 1, fuse: 1.1 }),
   rail:    W({ name: 'RAILGUN', kind: 'beam',  dmg: 220, mag: 3,   res: 21,  rate: 1.1,  reload: 2.6, range: 900, cost: 3500, pierce: 99 }),
   tesla:   W({ name: 'TESLA',   kind: 'tesla', dmg: 32,  mag: 40,  res: 160, rate: .13,  reload: 2.2, range: 120, cost: 2750, auto: true, chain: 4 }),
+  /* checkpoint 15 arsenal. gold = the shooter earns (gold x) the money for every hit/kill (money only, not score; not in PvP). leech = hp per zombie hit. chill = seconds zombies stay slowed. */
+  golden:  W({ name: 'GOLDEN GUN', kind: 'hit', dmg: 28, mag: 9, res: 72, rate: .22, reload: 1.2, range: 320, cost: 1500, spread: .025, gold: 3 }),
+  crossbow:W({ name: 'CROSSBOW', kind: 'hit',  dmg: 95,  mag: 4,   res: 32,  rate: .8,  reload: 1.9, range: 520, cost: 1800, pierce: 3, spread: .008 }),
+  aa12:    W({ name: 'AA-12',    kind: 'hit',  dmg: 15,  mag: 20,  res: 100, rate: .2,  reload: 2.4, range: 150, cost: 2250, auto: true, pellets: 6, spread: .2, slow: .9 }),
+  leech:   W({ name: 'LEECH',    kind: 'hit',  dmg: 18,  mag: 30,  res: 150, rate: .1,  reload: 1.9, range: 260, cost: 2250, auto: true, spread: .06, leech: 2 }),
+  laser:   W({ name: 'LASER',    kind: 'beam', dmg: 20,  mag: 60,  res: 240, rate: .09, reload: 2.4, range: 520, cost: 3200, auto: true, pierce: 99, spread: .01 }),
+  cryo:    W({ name: 'CRYO',     kind: 'flame', dmg: 4,  mag: 100, res: 300, rate: .05, reload: 2.5, range: 95,  cost: 2000, auto: true, chill: 3 }),
   plasma:  W({ name: 'PLASMA',  kind: 'proj',  dmg: 48,  mag: 24,  res: 120, rate: .15,  reload: 2.0, range: 420, cost: 3000, auto: true, pierce: 3, splash: 16, speed: 230, plasma: 1 }),
   /* pickaxe: weak melee that mines and repairs. Unbreakable, no ammo (mag/res unused) */
   pick:    W({ name: 'PICKAXE', kind: 'melee', dmg: 34,  mag: 0,   res: 0,   rate: .42,  reload: 0,   range: 26,  cost: 0, arc: 1.6 }),
 };
-PD.WORDER = ['m1911', 'revolver', 'pump', 'smg', 'ak', 'sniper', 'minigun', 'flamer', 'rpg', 'gl', 'rail', 'tesla', 'plasma', 'pick'];
+PD.WORDER = ['m1911', 'revolver', 'pump', 'smg', 'ak', 'sniper', 'minigun', 'flamer', 'rpg', 'gl', 'rail', 'tesla', 'plasma', 'golden', 'crossbow', 'aa12', 'leech', 'laser', 'cryo', 'pick'];
 PD.WBOX = PD.WORDER.filter(i => i !== 'm1911' && i !== 'pick');
 
 /* ---------- power-ups ---------- */
@@ -93,10 +100,16 @@ PD.PUDEF = {
   rapid:   { name: 'RAPID FIRE',col: '#ff9a3b', team: 0, dur: 20, ch: 'R' },
   cloak:   { name: 'CLOAK',     col: '#b48cff', team: 0, dur: 12, ch: 'C' },
   turret:  { name: 'TURRET',    col: '#c0c0c0', team: 0, dur: 25, ch: 'T' },
+  payday:  { name: 'PAYDAY',    col: '#ffc400', team: 1, dur: 0,  ch: '$' },   // +750 money for everyone
+  goldrush:{ name: 'GOLD RUSH', col: '#e6b800', team: 0, dur: 20, ch: 'G' },   // your shots pay triple
+  dd:      { name: 'DOUBLE DAMAGE', col: '#ff5ad1', team: 0, dur: 20, ch: 'D' },
+  inf:     { name: 'UNLIMITED AMMO', col: '#4affd0', team: 0, dur: 15, ch: 'U' },
+  strike:  { name: 'AIRSTRIKE', col: '#ff7a2a', team: 1, dur: 0,  ch: 'X' },   // rockets land on up to 7 zombies
+  invinc:  { name: 'INVINCIBLE',col: '#fff3a0', team: 0, dur: 8,  ch: '!' },
 };
 PD.PUPOOL = {
-  pve:   ['maxammo', 'x2', 'insta', 'nuke', 'freeze', 'heal', 'shield', 'speed', 'rapid', 'turret'],
-  pvp:   ['maxammo', 'heal', 'shield', 'speed', 'rapid', 'cloak', 'turret'],
+  pve:   ['maxammo', 'x2', 'insta', 'nuke', 'freeze', 'heal', 'shield', 'speed', 'rapid', 'turret', 'payday', 'goldrush', 'dd', 'inf', 'strike', 'invinc'],
+  pvp:   ['maxammo', 'heal', 'shield', 'speed', 'rapid', 'cloak', 'turret', 'dd', 'inf'],
   hide:  ['speed', 'cloak', 'shield', 'freeze'],
 };
 
@@ -123,17 +136,116 @@ PD.BOSSES = {
 /* ---------- looks ---------- */
 PD.SKIN = ['#f1c9a0', '#d9a577', '#b27c52', '#8a5a3a', '#5e3b24', '#c7d9b0'];
 PD.COLORS = ['#4a5d3a', '#b3121b', '#2f5fb3', '#d9b100', '#e8e2cf', '#222428', '#8a4fc7', '#e07a1f', '#1fa38a', '#d86fa0'];
-PD.HATS = ['NONE', 'CAP', 'BEANIE', 'MOHAWK', 'HELMET', 'BANDANA', 'CROWN'];
-PD.ACCS = ['NONE', 'SHADES', 'MASK', 'EYEPATCH'];
-PD.PICKS = ['PICKAXE', 'KATANA', 'LIGHTSABER', 'ZOMBIE ARM'];   // looks of the melee tool (cosmetic only)
-PD.defaultLook = () => ({ skin: 0, shirt: 0, pants: 5, hat: 0, hatc: 1, acc: 0, pick: 0 });
-PD.randomLook = () => ({ skin: PD.rndi(0, 5), shirt: PD.rndi(0, 9), pants: PD.rndi(0, 9), hat: PD.rndi(0, 6), hatc: PD.rndi(0, 9), acc: PD.rndi(0, 3), pick: PD.rndi(0, 3) });
+PD.HATS = ['NONE', 'CAP', 'BEANIE', 'MOHAWK', 'HELMET', 'BANDANA', 'CROWN', 'HORSE', 'WIZARD', 'PIRATE', 'SANTA', 'KNIGHT', 'BUCKET'];
+PD.ACCS = ['NONE', 'SHADES', 'MASK', 'EYEPATCH', 'SKULL'];
+PD.PICKS = ['PICKAXE', 'KATANA', 'LIGHTSABER', 'ZOMBIE ARM', 'GOLDEN PICK', 'CANDY CANE'];   // looks of the melee tool (cosmetic only)
+PD.SABERS = [{ n: 'Blue', glow: '#5fd0ff', core: '#9be8ff' }, { n: 'Green', glow: '#4cff6a', core: '#b9ffc6' }, { n: 'Red', glow: '#ff3b3b', core: '#ffb3b3' }, { n: 'Purple', glow: '#a86bff', core: '#dcc2ff' }];   // lightsaber blade colours (look.sab)
+/* outfits (look.out): a whole body costume that replaces shirt + pants. 0 = your own clothes.
+   group 'costume' = themed sets (the first twelve each match a hat), 'street' = streetwear. Colours here, pixel art in render.js.
+   pants/sleeve: leg + arm colour ('skin' = bare). shorts: drawn over the legs. stripe: a leg stripe. feet: shoe colour. hat: the hat it goes with. */
+PD.OUTFITS = [
+  { k: 'none',     name: 'NONE',               group: 'costume' },
+  { k: 'ball',     name: 'BASEBALL KIT',       group: 'costume', hat: 1,  pants: '#e8e8e4', sleeve: '#1d2f6f', feet: '#1d2f6f' },
+  { k: 'parka',    name: 'WINTER PARKA',       group: 'costume', hat: 2,  pants: '#3a3f4a', sleeve: '#e0701f', feet: '#2a2a2a' },
+  { k: 'punk',     name: 'PUNK JACKET',        group: 'costume', hat: 3,  pants: '#7a1020', sleeve: '#17171b', feet: '#111111' },
+  { k: 'soldier',  name: 'FATIGUES',           group: 'costume', hat: 4,  pants: '#3a4a2e', sleeve: '#4a5d3a', feet: '#1b1b1b' },
+  { k: 'outlaw',   name: 'OUTLAW PONCHO',      group: 'costume', hat: 5,  pants: '#3a2f24', sleeve: '#8a5a3a', feet: '#2a1a10' },
+  { k: 'royal',    name: 'ROYAL ROBE',         group: 'costume', hat: 6,  pants: '#6e0d14', sleeve: '#a0121b', feet: '#d9b100' },
+  { k: 'horse',    name: 'HORSE COSTUME',      group: 'costume', hat: 7,  pants: '#6e4528', sleeve: '#8a5a3a', feet: '#2a1a10' },
+  { k: 'wizard',   name: 'WIZARD ROBE',        group: 'costume', hat: 8,  pants: '#44238a', sleeve: '#5a2fa0', feet: '#2a1a3a' },
+  { k: 'pirate',   name: 'PIRATE COAT',        group: 'costume', hat: 9,  pants: '#1b1b20', sleeve: '#7a1522', feet: '#111111' },
+  { k: 'santa',    name: 'SANTA SUIT',         group: 'costume', hat: 10, pants: '#9e1017', sleeve: '#c8161d', feet: '#1b1b20' },
+  { k: 'knight',   name: 'KNIGHT ARMOUR',      group: 'costume', hat: 11, pants: '#8a929b', sleeve: '#aab2bb', feet: '#5a626b' },
+  { k: 'disco',    name: 'DISCO SUIT',         group: 'costume', pants: '#5a1580', sleeve: '#9a94c8', feet: '#e8e8f0' },
+  { k: 'gold',     name: 'GOLDEN SUIT',        group: 'costume', pants: '#c89a1a', sleeve: '#e0b020', feet: '#7a4a1a' },
+  { k: 'skeleton', name: 'SKELETON SUIT',      group: 'costume', pants: '#15171c', sleeve: '#15171c', feet: '#e8e2cf' },
+  { k: 'heather',  name: 'HEATHER HOODIE',     group: 'street',  pants: '#4a4f58', sleeve: '#9aa0a8', feet: '#e8e2cf' },
+  { k: 'boxtee',   name: 'RED BOX TEE',        group: 'street',  hat: 12, pants: '#2a2d33', sleeve: '#d41f26', feet: '#e8e2cf' },
+  { k: 'puffer',   name: 'SUMMIT PUFFER',      group: 'street',  pants: '#30343a', sleeve: '#1a1c20', feet: '#8a6234' },
+  { k: 'track',    name: 'SPRINT TRACKSUIT',   group: 'street',  pants: '#1c2c5c', sleeve: '#1c2c5c', stripe: '#f4f4f0', feet: '#f4f4f0' },
+  { k: 'camohood', name: 'JUNGLE CAMO HOODIE', group: 'street',  pants: '#2a2f26', sleeve: '#3f5a2a', feet: '#1b1b1b' },
+  { k: 'varsity',  name: 'VARSITY JACKET',     group: 'street',  pants: '#2f4a7a', sleeve: '#e8dcc0', feet: '#f4f4f0' },
+  { k: 'hazard',   name: 'CAUTION TEE',        group: 'street',  pants: '#1f2024', sleeve: '#ececec', feet: '#ff7a00' },
+  { k: 'sand',     name: 'SAND FLEECE SET',    group: 'street',  pants: '#b79c76', sleeve: '#c9ae86', feet: '#e8e2cf' },
+  { k: 'court',    name: 'COURT JERSEY',       group: 'street',  pants: 'skin',    sleeve: 'skin', shorts: '#c8161d', feet: '#f4f4f0' },
+];
+PD.defaultLook = () => ({ skin: 0, shirt: 0, pants: 5, hat: 0, hatc: 1, acc: 0, pick: 0, sab: 0, out: 0 });
+/* random looks (bots, Randomize) only ever use free options: hats 0-6, faces 0-3, pickaxes 0-3, blue saber, free outfits (or none) */
+PD.FREE_OUTFITS = [1, 2, 3, 4, 5, 6, 15];
+PD.randomLook = () => ({ skin: PD.rndi(0, 5), shirt: PD.rndi(0, 9), pants: PD.rndi(0, 9), hat: PD.rndi(0, 6), hatc: PD.rndi(0, 9), acc: PD.rndi(0, 3), pick: PD.rndi(0, 3), sab: 0, out: Math.random() < .4 ? PD.pick(PD.FREE_OUTFITS) : 0 });
 PD.cleanLook = l => {
   const d = PD.defaultLook(); l = l || {};
   const f = (k, n) => { const v = l[k] | 0; return v >= 0 && v < n ? v : d[k]; };
-  return { skin: f('skin', 6), shirt: f('shirt', 10), pants: f('pants', 10), hat: f('hat', 7), hatc: f('hatc', 10), acc: f('acc', 4), pick: f('pick', 4) };
+  return { skin: f('skin', 6), shirt: f('shirt', 10), pants: f('pants', 10), hat: f('hat', PD.HATS.length), hatc: f('hatc', 10), acc: f('acc', PD.ACCS.length), pick: f('pick', PD.PICKS.length), sab: f('sab', PD.SABERS.length), out: f('out', PD.OUTFITS.length) };
 };
 PD.cleanName = n => (String(n == null ? '' : n).replace(/[^\w \-.!?]/g, '').trim().slice(0, 12)) || 'Survivor';
+
+/* ---------- emotes (hold G). All eight are free. ---------- */
+PD.EMOTES = [
+  { name: 'WAVE' }, { name: 'DANCE' }, { name: 'CHEER' }, { name: 'SPIN' }, { name: 'SALUTE' }, { name: 'LAUGH' }, { name: 'DISCO' }, { name: 'HEADSPIN' },
+];
+
+/* ---------- unlockable cosmetics + redeem codes ----------
+   LOCK maps "slot:index" -> the unlock token that makes it selectable. Anything not listed is free.
+   CODES maps the code (upper case, letters and digits only) -> the tokens it gives. Cosmetic only; stored on this device. */
+PD.LOCK = {
+  'hat:7': 'horse', 'hat:8': 'wizard', 'hat:9': 'pirate', 'hat:10': 'santa', 'hat:11': 'knight', 'hat:12': 'drop',
+  'acc:4': 'spooky', 'pick:4': 'midas', 'pick:5': 'santa',
+  'sab:1': 'darth', 'sab:2': 'darth', 'sab:3': 'darth',
+  'out:7': 'horse', 'out:8': 'wizard', 'out:9': 'pirate', 'out:10': 'santa', 'out:11': 'knight', 'out:12': 'groove', 'out:13': 'midas', 'out:14': 'spooky',
+  'out:16': 'drop', 'out:17': 'summit', 'out:18': 'sprint', 'out:19': 'jungle', 'out:20': 'varsity', 'out:21': 'caution', 'out:22': 'sandstorm', 'out:23': 'court',
+};
+const STREET_TOKENS = ['drop', 'summit', 'sprint', 'jungle', 'varsity', 'caution', 'sandstorm', 'court'];
+PD.CODES = {
+  DARTH:      { give: ['darth'],     label: 'Lightsaber colours: green, red and purple' },
+  DEVELOPER:  { give: ['horse'],     label: 'Horse head hat and horse costume with a tail' },
+  WIZARD:     { give: ['wizard'],    label: 'Wizard hat and wizard robe' },
+  PIRATE:     { give: ['pirate'],    label: 'Pirate hat and pirate coat' },
+  KNIGHT:     { give: ['knight'],    label: 'Knight helmet and knight armour' },
+  SANTA:      { give: ['santa'],     label: 'Santa hat, Santa suit and candy cane pickaxe' },
+  MIDAS:      { give: ['midas'],     label: 'Golden pickaxe and golden suit' },
+  SPOOKY:     { give: ['spooky'],    label: 'Skull face and skeleton suit' },
+  GROOVE:     { give: ['groove'],    label: 'Disco suit' },
+  DROP:       { give: ['drop'],      label: 'Bucket hat and red box tee' },
+  SUMMIT:     { give: ['summit'],    label: 'Summit puffer jacket' },
+  SPRINT:     { give: ['sprint'],    label: 'Sprint tracksuit' },
+  JUNGLE:     { give: ['jungle'],    label: 'Jungle camo hoodie' },
+  VARSITY:    { give: ['varsity'],   label: 'Varsity jacket' },
+  CAUTION:    { give: ['caution'],   label: 'Caution tee' },
+  SANDSTORM:  { give: ['sandstorm'], label: 'Sand fleece set' },
+  COURT:      { give: ['court'],     label: 'Court jersey' },
+  STREETWEAR: { give: STREET_TOKENS, label: 'All streetwear' },
+  EVERYTHING: { give: ['darth', 'horse', 'wizard', 'pirate', 'santa', 'knight', 'midas', 'spooky', 'groove'].concat(STREET_TOKENS), label: 'Everything' },
+};
+/* where an unlocked thing shows up in the survivor menu (for the "Unlocked" message and the tab dots) */
+PD.lockTab = key => { const [slot, i] = key.split(':'); return slot === 'hat' || slot === 'acc' ? 'head' : slot === 'out' ? (PD.OUTFITS[+i].group === 'street' ? 'street' : 'outfit') : 'gear'; };
+PD.lockName = key => { const [slot, i] = key.split(':'); return (slot === 'hat' ? PD.HATS : slot === 'acc' ? PD.ACCS : slot === 'pick' ? PD.PICKS : slot === 'out' ? PD.OUTFITS.map(o => o.name) : PD.SABERS.map(s => s.n.toUpperCase() + ' SABER'))[+i]; };
+PD.Unlocks = (function () {
+  const KEY = 'pdUnlocks'; let mem = [];
+  const ls = () => { try { return root.localStorage || null; } catch (e) { return null; } };
+  const load = () => { const s = ls(); if (!s) return mem.slice(); try { const a = JSON.parse(s.getItem(KEY) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string').slice(0, 64) : []; } catch (e) { return []; } };
+  const save = a => { mem = a.slice(); const s = ls(); if (s) { try { s.setItem(KEY, JSON.stringify(a)); } catch (e) {} } };
+  const U = {
+    has: tok => load().indexOf(tok) >= 0,
+    locked: (slot, i) => { const t = PD.LOCK[slot + ':' + i]; return !!t && !U.has(t); },
+    clean: code => String(code == null ? '' : code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 24),
+    /* -> { ok, label, fresh, keys } ; ok false = not a code, fresh false = you already had everything it gives, keys = the items newly unlocked ("slot:index") */
+    redeem(code) {
+      const c = PD.CODES[U.clean(code)]; if (!c) return { ok: false };
+      const have = load(), add = c.give.filter(t => have.indexOf(t) < 0);
+      if (add.length) save(have.concat(add));
+      return { ok: true, label: c.label, fresh: add.length > 0, keys: Object.keys(PD.LOCK).filter(k => add.indexOf(PD.LOCK[k]) >= 0) };
+    },
+    /* put free options in place of any locked ones (a look saved before the code was cleared, or edited by hand) */
+    sanitize(look) {
+      const d = PD.defaultLook();
+      for (const k of ['hat', 'acc', 'pick', 'sab', 'out']) if (U.locked(k, look[k])) look[k] = d[k];
+      return look;
+    },
+    reset() { save([]); },
+  };
+  return U;
+})();
 
 /* ---------- misc ---------- */
 PD.MODES = {

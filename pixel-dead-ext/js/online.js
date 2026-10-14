@@ -68,7 +68,7 @@ H._msg = function (pid, m) {
   if (m.t === 'hello') return this._hello(pid, m);
   const e = this.entry(pid), c = this.cl[pid]; if (!e || !c) return;
   if (m.t === 'in') { c.seen = this.clock; if (this.sim) this.sim.setInput(pid, m); }
-  else if (m.t === 'act') { c.seen = this.clock; if (this.sim && (m.k === 'rl' || m.k === 'use' || m.k === 'sw' || m.k === 'ab' || m.k === 'bm' || m.k === 'bsel')) this.sim.act(pid, m.k, m.v); }
+  else if (m.t === 'act') { c.seen = this.clock; if (this.sim && (m.k === 'rl' || m.k === 'use' || m.k === 'sw' || m.k === 'ab' || m.k === 'bm' || m.k === 'bsel' || m.k === 'emote')) this.sim.act(pid, m.k, m.v); }
   else if (m.t === 'bye') { this._leave(pid, 'left'); this.net.drop(pid); }
   else if (m.t === 'chat') { c.seen = this.clock; this._chat(pid, m.s); }
   else if (m.t === 'ping') { c.seen = this.clock; this.sendTo(pid, { t: 'pong', n: num(m.n) }, false); }
@@ -246,8 +246,8 @@ M.applySnap = function (s) {
   const stamp = ++this.stamp, list = [];
   for (const a of s.p || []) {
     const id = a[0], x = a[1], y = a[2], ang = a[3], fl = a[5] | 0; let p = this.pl[id]; const was = !!(p && p.vis), wasAlive = was && (p.fl & 1);
-    if (!p) { const inf = this.info[id] || {}; p = this.pl[id] = { id, name: inf.name || String(id), look: inf.look || PD.defaultLook(), x, y, tx: x, ty: y, ang, tang: ang, ph: 0, fl: 0, hp: 100, wid: 0, swing: 0, stam: 100, exh: false, spd: 1, sprint: false, vis: false, seen: 0 }; }
-    p.vis = true; p.seen = stamp; p.hp = a[4]; p.fl = fl; p.wid = a[6] || 0; p.swing = fl & 128 ? .18 : 0; p.tang = ang; p.tx = x; p.ty = y;
+    if (!p) { const inf = this.info[id] || {}; p = this.pl[id] = { id, name: inf.name || String(id), look: inf.look || PD.defaultLook(), x, y, tx: x, ty: y, ang, tang: ang, ph: 0, fl: 0, hp: 100, wid: 0, swing: 0, stam: 100, exh: false, spd: 1, sprint: false, vis: false, seen: 0, em: 0 }; }
+    p.vis = true; if (!(p.emOff && Date.now() - p.emOff < 350)) p.em = a[7] | 0; p.seen = stamp; p.hp = a[4]; p.fl = fl; p.wid = a[6] || 0; p.swing = fl & 128 ? .18 : 0; p.tang = ang; p.tx = x; p.ty = y;
     if (id === this.meId) {
       const ex = x - p.x, ey = y - p.y, err = Math.hypot(ex, ey);
       if (!was || !wasAlive !== !(fl & 1) || err > 40) { p.x = x; p.y = y; }

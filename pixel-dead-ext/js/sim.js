@@ -51,7 +51,7 @@ P.addPlayer = function (pl) {
   const p = {
     id: pl.id, name: PD.cleanName(pl.name), look: PD.cleanLook(pl.look), x: 0, y: 0, ang: 0, ph: 0,
     hp: 100, maxhp: 100, sh: 0, pts: 500, score: 0, k: 0, d: 0, alive: true, stam: 100, exh: false, spd: 1, sprint: false,
-    weapons: this.hide ? [] : [mkW('m1911'), mkW('pick')], wood: PD.BUILD.START.wood, stone: PD.BUILD.START.stone, build: 0, bsel: 0, bcd: 0, lg: 0, cur: 0, cd: 0, reload: 0, pull: 0, lastFc: 0, regenT: 0, hurt: 0, swing: 0,
+    weapons: this.hide ? [] : [mkW('m1911'), mkW('pick')], wood: PD.BUILD.START.wood, stone: PD.BUILD.START.stone, build: 0, bsel: 0, bcd: 0, lg: 0, cur: 0, cd: 0, reload: 0, pull: 0, lastFc: 0, regenT: 0, hurt: 0, swing: 0, em: 0, emHp: 0,
     pu: { speed: 0, rapid: 0, cloak: 0 }, cb: 0, cbT: 0, streak: 0, st: 0, prot: 0, atkT: 0, r: PR, seeker: 0, stun: 0, ab: 0, resp: 0, bot: pl.bot && PD.newBot ? PD.newBot() : null,
     inp: { mx: 0, my: 0, a: 0, f: 0, fc: 0, sp: 0, f2: 0, ad: 0 },
   };
@@ -95,14 +95,18 @@ function nearestAlive(sim, x, y) {
   for (const p of sim.players) if (p.alive && !(p.pu.cloak > 0)) { const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y); if (d < bd) { bd = d; b = p; } }
   return b ? { p: b, d: Math.sqrt(bd) } : null;
 }
-P.addPts = function (p, n) {
+P.addPts = function (p, n, x, y, big) {
   if (this.hide) return;
   if (this.g.pu.x2 > 0) n *= 2;
   if (this.mode === 'arena') n *= 1 + Math.min(4, Math.floor(p.streak / 3));
   p.pts += n; p.score += n;
+  if (this.gold > 1 && !this.pvp) {                       // GOLDEN GUN / GOLD RUSH: the same hit or kill pays (gold x) in money; the extra is money only, never score
+    const extra = n * (this.gold - 1); p.pts += extra;
+    if (x !== undefined && (big || !(p.goldTxt > this.t))) { p.goldTxt = this.t + .12; this.emit({ t: 'txt', x, y: y - (big ? 12 : 6), s: '$' + Math.round(n + extra), c: '#ffd24a' }); if (big) this.snd('coin', p.x, p.y); }
+  }
 };
 P.hurtP = function (p, dmg, kx, ky, by) {
-  if (!p.alive || p.prot > 0) return;
+  if (!p.alive || p.prot > 0 || p.pu.invinc > 0) return;
   if (p.sh > 0) { const a = Math.min(p.sh, dmg); p.sh -= a; dmg -= a; }
   if (dmg <= 0) return;
   p.hp -= dmg; p.hurt = .35; p.regenT = this.pvp ? 6 : 5; this.emit({ t: 'hurt', id: p.id });
@@ -128,6 +132,7 @@ P.checkOver = function () {
 P.resultRows = function () { return this.players.map(p => ({ id: p.id, name: p.name, k: p.k, d: p.d, score: Math.floor(p.score), seeker: p.seeker ? 1 : 0, bot: p.bot ? 1 : 0 })); };
 /* damage dispatcher: zombies/bosses take full damage, other players (PvP) take x0.6 */
 P.dmg = function (e, dmg, p, k) {
+  if (p && p.pu && p.pu.dd > 0) dmg *= 2;                  // DOUBLE DAMAGE power-up
   if (e.type) return this.hurtZ(e, dmg, p, k);
   this.hurtP(e, dmg * .6, 0, 0, p); if (p) this.addPts(p, 10);
 };
@@ -197,6 +202,8 @@ P.giveWeapon = function (p, id) {
 };
 P.act = function (id, kind, v) {
   const p = this.pmap[id]; if (!p || !p.alive) return;
+  if (kind === 'emote') { v = v | 0; if (v >= 0 && v < PD.EMOTES.length) { p.em = v + 1; p.emHp = p.hp; } return; }   // an emote plays until the player moves, shoots, gets hurt or does anything else
+  p.em = 0;
   if (kind === 'ab') return this.ability(p);
   if (!p.weapons.length) return;
   if (kind === 'bm') { p.build = p.build ? 0 : 1; p.bcd = .15; this.snd('sw', p.x, p.y); return; }
@@ -334,7 +341,7 @@ P.hurtZ = function (z, dmg, p, k) {
   else if (g.pu.insta > 0) dmg = z.hp + 1;
   z.hp -= dmg; z.flash = .1;
   this.emit({ t: 'hit', x: z.x, y: z.y, a: p ? Math.atan2(z.y - p.y, z.x - p.x) : 0, k: k || 0 });
-  if (p) this.addPts(p, 10);
+  if (p) this.addPts(p, 10, z.x, z.y);
   if (z.type === 'jugg' && z.armor && z.hp < z.mhp * .5) { z.armor = false; z.sp *= 1.6; this.banner('ARMOR BROKEN', '#ff3b3b'); this.snd('roar', z.x, z.y); }
   if (z.hp <= 0) this.killZ(z, p);
 };
@@ -342,7 +349,7 @@ P.killZ = function (z, p, quiet) {
   if (z.dead) return; z.dead = true;
   const isB = !!z.boss;
   this.emit({ t: 'kill', x: z.x, y: z.y, b: isB ? 1 : 0 });
-  if (p) { p.k += this.pvp ? (isB ? 3 : 0) : 1; p.streak++; p.cbT = 3; this.addPts(p, isB ? 500 : 50); }
+  if (p) { p.k += this.pvp ? (isB ? 3 : 0) : 1; p.streak++; p.cbT = 3; this.addPts(p, isB ? 500 : 50, z.x, z.y, true); }
   this.g.kills++;
   if (z.type === 'bloater') { this.explode(z.x, z.y, 40, 35, null, true); }
   if (isB) {
@@ -401,27 +408,28 @@ P.fire = function (p, w, d) {
     if (!hit) this.pickTile(p);
     return;
   }
-  w.mag--; p.cd = d.rate / (p.pu.rapid > 0 ? 1.7 : 1);
+  if (!(p.pu.inf > 0)) w.mag--; p.cd = d.rate / (p.pu.rapid > 0 ? 1.7 : 1);
+  this.gold = Math.max(d.gold || 0, p.pu.goldrush > 0 ? 3 : 0);   // read by addPts for every hit this shot causes
   p.cb = 0;
   if (d.kind === 'hit' || d.kind === 'beam') {
     const pellets = d.pellets;
     for (let i = 0; i < pellets; i++) {
       const a = p.ang + (Math.random() - .5) * 2 * d.spread, L = Math.min(d.range, PD.rayTiles(m, ox, oy, Math.cos(a), Math.sin(a), d.range));
       const hits = rayHits(tl, ox, oy, a, L); let n = 0;
-      for (const h of hits) { if (n >= d.pierce) break; this.dmg(h.e, d.dmg, p, 0); n++; }
+      for (const h of hits) { if (n >= d.pierce) break; this.dmg(h.e, d.dmg, p, 0); n++; if (d.leech && h.e.type) p.hp = Math.min(p.maxhp, p.hp + d.leech); }
       let len = L; if (hits.length && d.pierce <= 1 && hits[0]) len = Math.max(4, Math.min(L, hits[0].t));
       this.emit({ t: 'shot', x: ox, y: oy, a, l: len, w: w.id, s: p.id });
     }
     this.snd('shot:' + w.id, p.x, p.y);
   } else if (d.kind === 'flame') {
-    this.emit({ t: 'flame', x: ox, y: oy, a: p.ang });
+    this.emit({ t: 'flame', x: ox, y: oy, a: p.ang, c: d.chill ? 1 : 0 });
     for (const z of tl) {
       if (z.dead) continue; const dx = z.x - p.x, dy = z.y - p.y, dd = Math.hypot(dx, dy);
       if (dd > d.range + z.r || Math.abs(PD.angDiff(Math.atan2(dy, dx), p.ang)) > .38) continue;
       if (!PD.hasLOS(m, p.x, p.y, z.x, z.y)) continue;
-      this.dmg(z, d.dmg, p, 3); if (z.type) z.burn = d.burn;
+      this.dmg(z, d.dmg, p, 3); if (z.type) { if (d.burn) z.burn = d.burn; if (d.chill) z.chill = d.chill; }
     }
-    this.snd('shot:flamer', p.x, p.y);
+    this.snd('shot:' + w.id, p.x, p.y);
   } else if (d.kind === 'tesla') {
     let best = null, bd = d.range;
     for (const z of tl) { if (z.dead) continue; const dd = PD.dist(p.x, p.y, z.x, z.y); if (dd < bd && Math.abs(PD.angDiff(Math.atan2(z.y - p.y, z.x - p.x), p.ang)) < .9 && PD.hasLOS(m, p.x, p.y, z.x, z.y)) { bd = dd; best = z; } }
@@ -440,6 +448,7 @@ P.fire = function (p, w, d) {
     this.projs.push({ id: this.nid++, x: ox, y: oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, w: w.id, life: d.fuse || d.range / sp, o: p.id, pierce: d.pierce, hit: [], kind: d.plasma ? 'plasma' : d.fuse ? 'gl' : 'rpg' });
     this.snd('shot:' + w.id, p.x, p.y);
   }
+  this.gold = 0;
   if (w.mag <= 0 && w.res > 0) this.startReload(p);
 };
 
@@ -479,7 +488,8 @@ P.updZ = function (z, dt) {
   const m = this.map, g = this.g;
   if (z.burn > 0) { z.burn -= dt; z.bt -= dt; if (z.bt <= 0) { z.bt = .25; this.hurtZ(z, 3, null, 5); if (z.dead) return; } z.fl |= 1; } else z.fl &= ~1;
   z.flash = Math.max(0, z.flash - dt); z.atk = Math.max(0, z.atk - dt); z.ba = Math.max(0, (z.ba || 0) - dt);
-  const frozen = g.pu.freeze > 0; z.fl = frozen ? z.fl | 2 : z.fl & ~2;
+  if (z.chill > 0) z.chill -= dt;
+  const frozen = g.pu.freeze > 0 || z.chill > 0; z.fl = frozen ? z.fl | 2 : z.fl & ~2;
   const tg = nearestAlive(this, z.x, z.y); if (!tg) return;
   const p = tg.p, d = tg.d, spd = z.sp * (frozen ? .35 : 1), tp = ZT[z.type];
   let dx, dy;
@@ -541,7 +551,8 @@ P.updBoss = function (z, dt) {
   z.flash = Math.max(0, z.flash - dt); z.atk = Math.max(0, z.atk - dt);
   if (z.burn > 0) { z.burn -= dt; z.bt -= dt; if (z.bt <= 0) { z.bt = .25; this.hurtZ(z, 3, null, 5); if (z.dead) return; } }
   if (!tg) return; const p = tg.p, d = tg.d, ux = (p.x - z.x) / (d || 1), uy = (p.y - z.y) / (d || 1);
-  const frz = g.pu.freeze > 0 ? .35 : 1; let vx = 0, vy = 0, sp = z.sp * frz;
+  if (z.chill > 0) z.chill -= dt;
+  const frz = (g.pu.freeze > 0 ? .35 : 1) * (z.chill > 0 ? .6 : 1); let vx = 0, vy = 0, sp = z.sp * frz;
   const toward = () => { if (d < 220 && PD.hasLOS(m, z.x, z.y, p.x, p.y)) { vx = ux; vy = uy; } else { const f = this.fieldFor(p); if (PD.flowDir(m, f.dist, z.x, z.y, _o)) { vx = _o.x; vy = _o.y; } else { vx = ux; vy = uy; } } };
   const away = () => { vx = -ux; vy = -uy; };
   const aim = z.ang = Math.atan2(p.y - z.y, p.x - z.x);
@@ -591,6 +602,11 @@ P.applyPU = function (p, k) {
   else if (k === 'freeze' && this.hide) { for (const q of this.players) if (q.seeker && PD.dist(q.x, q.y, p.x, p.y) < 130) { q.stun = 3.5; this.emit({ t: 'txt', x: q.x, y: q.y - 14, s: 'FROZEN', c: '#8fe8ff' }); } this.emit({ t: 'boom', x: p.x, y: p.y, r: 130 }); }
   else if (k === 'x2' || k === 'insta' || k === 'freeze') g.pu[k] = D.dur;
   else if (k === 'nuke') { this.emit({ t: 'boom', x: p.x, y: p.y, r: 260 }); this.snd('boom', p.x, p.y); for (const z of this.zs) if (!z.boss && !z.dead) this.killZ(z, null, true); for (const q of this.players) { q.pts += 400; q.score += 400; } }
+  else if (k === 'payday') { for (const q of this.players) { q.pts += 750; this.emit({ t: 'txt', x: q.x, y: q.y - 24, s: '+$750', c: '#ffd24a' }); } }
+  else if (k === 'strike') {
+    const pool = this.zs.filter(z => !z.dead).sort(() => Math.random() - .5).slice(0, 7); this.snd('boom', p.x, p.y);
+    for (const z of pool) this.explode(z.x, z.y, 44, 190, null);          // owner null: safe for players, no kill credit (like the nuke)
+  }
   else if (k === 'heal') p.hp = Math.min(p.maxhp, p.hp + 60);
   else if (k === 'shield') p.sh = 50;
   else if (k === 'turret') this.turrets.push({ id: this.nid++, x: p.x, y: p.y, ang: 0, life: PUDEF.turret.dur, o: p.id, cd: 0 });
@@ -676,7 +692,7 @@ P.update = function (dt) {
   for (const k in g.pu) if (g.pu[k] > 0) g.pu[k] = Math.max(0, g.pu[k] - dt);
   // players
   for (const p of this.players) {
-    if (!p.alive) { if (this.pvp && !this.over) { p.resp -= dt; if (p.resp <= 0) this.respawnPvp(p); } continue; }
+    if (!p.alive) { p.em = 0; if (this.pvp && !this.over) { p.resp -= dt; if (p.resp <= 0) this.respawnPvp(p); } continue; }
     p.hurt = Math.max(0, p.hurt - dt); p.cd = Math.max(0, p.cd - dt); p.pull = Math.max(0, p.pull - dt); p.swing = Math.max(0, p.swing - dt); p.prot = Math.max(0, p.prot - dt);
     if (p.bot && this.botThink) this.botThink(p, dt);
     for (const k in p.pu) if (p.pu[k] > 0) p.pu[k] = Math.max(0, p.pu[k] - dt);
@@ -684,6 +700,7 @@ P.update = function (dt) {
     const w = p.weapons[p.cur], d = w ? WDEF[w.id] : null;
     p.spd = (d ? d.slow : 1) * (p.reload > 0 ? .88 : 1) * (p.pu.speed > 0 ? 1.35 : 1);
     if (this.hide) p.spd = (p.seeker ? 1.08 : 1) * (p.pu.speed > 0 ? 1.35 : 1) * (p.seeker && (this.g.ph === 'hide' || p.stun > 0) ? 0 : 1);
+    if (p.em) { const i = p.inp; if (i.mx || i.my || i.f || i.f2 || p.hp < p.emHp - .01) p.em = 0; else p.emHp = p.hp; }
     PD.movePlayer(m, p, p.inp, dt); p.ang = p.inp.a;
     if (p.regenT > 0) p.regenT -= dt; else if (p.hp < p.maxhp) p.hp = Math.min(p.maxhp, p.hp + (this.pvp ? 12 : 20) * dt);
     if (!d) continue;
@@ -749,7 +766,7 @@ P.globalInfo = function () {
     ph: g.ph, pt: Math.max(0, g.phT), tl: Math.max(0, g.tl), sn: g.scanT, lim: g.lim, sk: this.hide ? this.players.filter(p => p.seeker).length : 0, hd: this.hide ? this.players.filter(p => !p.seeker).length : 0,
     sc: this.players.map(p => [p.id, p.k, p.d, Math.floor(p.score), p.alive ? 1 : 0, p.seeker ? 1 : 0]) };
 };
-const FLAG = (sim, p) => (p.alive ? 1 : 0) | (p.pu.cloak > 0 ? 2 : 0) | (p.seeker ? 4 : 0) | (p.sh > 0 ? 8 : 0) | (p.sprint ? 16 : 0) | (p.prot > 0 ? 32 : 0) | (sim.hide && sim.inBush(p) ? 64 : 0) | (p.swing > 0 ? 128 : 0);
+const FLAG = (sim, p) => (p.alive ? 1 : 0) | (p.pu.cloak > 0 ? 2 : 0) | (p.seeker ? 4 : 0) | (p.sh > 0 ? 8 : 0) | (p.sprint ? 16 : 0) | (p.prot > 0 || p.pu.invinc > 0 ? 32 : 0) | (sim.hide && sim.inBush(p) ? 64 : 0) | (p.swing > 0 ? 128 : 0);
 P.dmgBlocks = function () {
   const out = [], w = this.map.w; if (!this.blk.size) return out;
   for (const [i, b] of this.blk) if (b.hp < b.mhp) out.push({ x: i % w, y: (i / w) | 0, f: Math.max(0, b.hp / b.mhp) });
@@ -766,7 +783,7 @@ P.snapFor = function (id, evs) {
   let fp = v.players.find(p => p.id === id); if (fp && !fp.alive) fp = v.players.find(p => p.alive) || fp;
   const cx = fp ? fp.x : 0, cy = fp ? fp.y : 0, near = (x, y, r) => !fp || (x - cx) * (x - cx) + (y - cy) * (y - cy) < r * r;
   const s = { t: 's', tm: Math.round(this.t * 100) / 100, p: [], z: [], pr: [], ep: [], pk: [], tu: [], cl: [], bl: [], e: evs || [], h: v.h, g: v.g };
-  for (const p of v.players) { const w = p.weapons[p.cur]; s.p.push([p.id, R1(p.x), R1(p.y), Math.round(p.ang * 100) / 100, Math.ceil(p.hp), v.flag(p), w ? w.id : 0]); }
+  for (const p of v.players) { const w = p.weapons[p.cur]; s.p.push([p.id, R1(p.x), R1(p.y), Math.round(p.ang * 100) / 100, Math.ceil(p.hp), v.flag(p), w ? w.id : 0, p.alive ? p.em | 0 : 0]); }
   let nz = 0;
   for (const z of this.zs) {
     if (!z.boss && (nz >= 70 || !near(z.x, z.y, 450))) continue; if (!z.boss) nz++;
